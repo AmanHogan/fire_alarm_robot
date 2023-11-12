@@ -6,7 +6,6 @@ from pybricks.media.ev3dev import SoundFile, ImageFile
 from robotics import Robot, Navigator
 from globals import *
 from behaviors import (RobotBehavior, TouchBehavior, FireDetection, WallFollowing, Wander)
-import kinematics as kn
 import math
 import heapq
 

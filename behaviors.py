@@ -24,9 +24,6 @@ class TouchBehavior(RobotBehavior):
         print("Touched a Wall!!!!")
         robot.backup()
 
-
-
-
 class FireDetection(RobotBehavior):
     """Coordinates behaviors if robot sees a bright enough light.
     Priority of 1
