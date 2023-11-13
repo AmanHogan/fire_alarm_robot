@@ -54,9 +54,12 @@ class Robot:
         self.hasHitWall = touch.pressed() # True if sensor touched wall
         self.distanceToWall = sonic.distance() # distance to wall [mm] 
         self.wallFollowingDistance = 0
-        self.fireDetected = color.ambient() # percentage value of ambient light [#]
+        self.current_light_intensity = color.ambient() # percentage value of ambient light [#]
+        self.light_threshold = 10
         self.isFollowingWall = False # True if robot is currently fallowing a wall
         self.isWandering = False # True if Robot is in Wandering behavior
+        self.isFollowingLight = False
+        self.fireNotFound = True
 
     def move(self, distance) -> None:
         """
@@ -109,7 +112,7 @@ class Robot:
         Proccess a behavior from the priority queue. Pops the behavior from
         queue before it is proccessed.
         """
-        
+
         log("Priority queue BEFORE Pop..." + str(self.queue))
         behavior = heapq.heappop(self.queue)
         log("Priority after AFTER Pop..." + str(self.queue))
@@ -121,25 +124,22 @@ class Robot:
 
         if behavior.priority == 1:
             log("Detected a light...")
-            behavior.run()
-            log("Finished Fire Detection...")
+            behavior.run(self)
 
         if behavior.priority == 2:
             log("Detected a wall...")
             behavior.run(self)
-            log("Finished Following wall...")
 
         if behavior.priority == 3:
             log("Starting to Wander...")
             behavior.run(self)
-            log("Finished Wandering...")
             
     def update_sensors(self) -> None:
         """Function updates the robot's sensor values and stores these values.
         """
         self.hasHitWall = self.touch.pressed()
         self.distanceToWall = self.sonic.distance()
-        self.fireDetected = self.color.ambient()
+        self.current_light_intensity = self.color.ambient()
 
     def update_queue(self) -> None:
         """Updates the priority queue using the robot's sensor values
@@ -157,7 +157,7 @@ class Robot:
                 if self.isFollowingWall == False:
                     self.queue.append(WallFollowing())
 
-        if self.fireDetected > FIRE_LIGHT_INTENSITY:
+        if self.current_light_intensity >=  self.light_threshold:
             if not any(isinstance(behavior, FireDetection) for behavior in self.queue):
                 self.queue.append(FireDetection())
         

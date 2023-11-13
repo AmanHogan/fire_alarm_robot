@@ -26,7 +26,6 @@ class TouchBehavior(RobotBehavior):
         super().__init__(0)
 
     def run(self, robot):
-        print("Touched a Wall!!!!")
         self.backup(robot)
 
     def backup(self, robot) -> None:
@@ -47,8 +46,41 @@ class FireDetection(RobotBehavior):
     def __init__(self):
         super().__init__(1)
 
-    def run(self):
-        print("Detected a Fire!!!")
+    def run(self, robot):
+        self.move_to_fire(robot)
+
+    def move_to_fire(self, robot):
+
+        robot.isFollowingLight = True
+        previous_light_intensity = robot.current_light_intensity
+
+        log("Current Light: " + str(robot.current_light_intensity) + " | Light Theshold: " + str(robot.light_threshold))
+        
+        while robot.isFollowingLight:
+
+            robot.move(50)
+            robot.update_sensors()
+            
+            log("Curr Light " + str(robot.current_light_intensity) + " | Prev Light: " + str(previous_light_intensity))
+
+            if robot.hasHitWall:
+                self.stop_behavior(robot, "Stopped follwoing fire because touched a wall")
+
+            if robot.current_light_intensity > FIRE_LIGHT_INTENSITY:
+                self.stop_behavior(robot, "FIRE HAS BEEN FOUND!!!!")
+                robot.fireNotFound = False
+                
+            if previous_light_intensity > robot.current_light_intensity:
+                robot.light_threshold = robot.light_threshold + 3
+                log("False positive Light detected. Increasing Light ambience to " + str(robot.light_threshold))
+                self.stop_behavior(robot, "Stopped Follwoing light because false positive")
+                
+            previous_light_intensity = robot.current_light_intensity
+
+    def stop_behavior(self, robot, msg):
+        robot.stop()
+        robot.isFollowingLight = False
+        log(msg)
         
 class WallFollowing(RobotBehavior):
     """Coordinates behaviors if robot gets close enough to the wall.
@@ -58,7 +90,6 @@ class WallFollowing(RobotBehavior):
         super().__init__(2)
 
     def run(self, robot):
-        print("Following Wall...")
         self.follow_wall(robot)
 
     def stop_behavior(self, robot, msg):
@@ -92,8 +123,8 @@ class WallFollowing(RobotBehavior):
             if robot.hasHitWall:
                 self.stop_behavior(robot, "Stopped follwoing wall because touched a wall")
 
-            if robot.fireDetected > FIRE_LIGHT_INTENSITY:
-                self.stop_behavior(robot, "Stopped Follwoing wall because of fire detetcted")
+            if robot.current_light_intensity > robot.light_threshold:
+                self.stop_behavior(robot, "Stopped Follwoing wall because of light detetcted")
 
             if (robot.distanceToWall < robot.wallFollowingDistance - 50) or (robot.distanceToWall > robot.wallFollowingDistance + 50):
                 self.stop_behavior(robot, "Stopped follwoing wall because not near wall...")
@@ -107,9 +138,10 @@ class Wander(RobotBehavior):
         super().__init__(3)
 
     def run(self, robot):
-        print("Wandering...")
         self.wander(robot)
 
+    # TODO: Add function that scans room to check for differences in light intensitis, then test this out...
+    
     def wander(self, robot):
         """
         Robot just moves forward until sensors 
@@ -118,8 +150,6 @@ class Wander(RobotBehavior):
         robot.isWandering = True
 
         while robot.isWandering:
-            print(robot.fireDetected)
-
             robot.run()
             robot.update_sensors()
 
@@ -129,8 +159,8 @@ class Wander(RobotBehavior):
             if robot.distanceToWall < MIN_WALL_DISTANCE:
                 self.stop_behavior(robot, "Stopped Wandering because close to wall...")
 
-            if robot.fireDetected > FIRE_LIGHT_INTENSITY:
-                self.stop_behavior(robot, "Stopped Wanderign because light/fire detetcetd...")
+            if robot.current_light_intensity > robot.light_threshold:
+                self.stop_behavior(robot, "Stopped Wandering because light/fire detetcetd...")
 
     def stop_behavior(self, robot, msg):
         robot.stop()

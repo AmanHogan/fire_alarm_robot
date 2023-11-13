@@ -15,8 +15,9 @@ print("-----------------------")
 
 # Initialize the EV3 Brick.
 ev3 = EV3Brick()
+ev3.speaker.set_speech_options(voice='f3')
 
-
+fireNotFound = True
 
 robot = Robot(Motor(Port.A, positive_direction=Direction.COUNTERCLOCKWISE), 
               Motor(Port.D, positive_direction=Direction.COUNTERCLOCKWISE), 
@@ -26,13 +27,12 @@ robot = Robot(Motor(Port.A, positive_direction=Direction.COUNTERCLOCKWISE),
 			  UltrasonicSensor(Port.S2))
 
 
-while True:
-
+while robot.fireNotFound:
 	robot.update_sensors()
 	robot.update_queue()
 	robot.process_behavior()
 
-
+ev3.speaker.say("Fire has been found")
 
 # while True:
 #     robot.run()
