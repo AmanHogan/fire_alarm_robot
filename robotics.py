@@ -9,6 +9,7 @@ from globals import *
 from logger import log
 import heapq
 from behaviors import (RobotBehavior, TouchBehavior, FireDetection, WallFollowing, Wander)
+import math
 
 
 ######################################### Navigation class ############################################
@@ -19,7 +20,7 @@ class Navigator:
     def __init__(self):
         self.orientation = 0 # orientation [deg]
         self.orientations = [self.orientation] # List of orientations [deg]
-        log("Orientation: " + str(self.orientation))
+        log("Current Robot Orientation: " + str(self.orientation) + " degrees...")
 
     def update_nav(self, angle) -> None:
         """
@@ -29,7 +30,7 @@ class Navigator:
         # Update the orientation based on the turn and keep within the range of -180 to 180 degrees
         self.orientation = (self.orientation + angle) % 360
         self.orientations.append(self.orientation)
-        log("Orientation: " + str(self.orientation))
+        log("Current Robot Orientation: " + str(self.orientation) + " degrees...")
 
 ######################################### Robot class ############################################
 
@@ -66,7 +67,7 @@ class Robot:
         angle =  (((distance) / TIRE_CIRCUMFERENCE) * FULL_ROTATION)*ERROR_FACTOR_DISTANCE 
         self.left_motor. run_angle(TIRE_RPM, angle, wait=False)
         self.right_motor.run_angle(TIRE_RPM, angle)
-        log("Move: " + str(distance))
+        log("Robot Moved: " + str(distance) + " milimeters...")
 
     def turn(self, angle) -> None:
         """
@@ -83,7 +84,7 @@ class Robot:
         self.right_motor.run_angle(TIRE_RPM, steering_angle)
 
         self.navigator.update_nav(angle) # notify naviagtor
-        log("Turn: " + str(angle))
+        log("Robot turned: " + str(angle) + " degrees...")
         
     def run(self) -> None:
         """
@@ -102,101 +103,37 @@ class Robot:
         self.left_motor.brake()
         self.right_motor.brake()
 
-    def backup(self) -> None:
-        """
-        Given that the robot ran into a wall,
-        backup the robot 200 mm and turn it 90 degrees.
-        """
-        random_angle = randint(45, 180)
-        self.move(-200)
-        self.turn(random_angle)
-        self.hasHitWall = False
-
-    def follow_wall(self) -> None:
-        """
-        Ensures the robot follows the wall until it detects that it should not 
-        be following the wall anymore
-        """
-        self.isFollowingWall = True
-        self.wallFollowingDistance = self.distanceToWall
-
-        while self.isFollowingWall:
-            self.run()
-            self.update_sensors()
-
-            if self.hasHitWall:
-                self.queue.append(TouchBehavior())
-                self.stop()
-                print("Stopped Follwoing wall because of hittinh wall")
-                self.isFollowingWall = False
-
-            if self.fireDetected > FIRE_LIGHT_INTENSITY:
-                self.queue.append(FireDetection())
-                self.stop()
-                print("Stopped Follwoing wall because of fire detetcted ")
-                self.isFollowingWall = False
-
-            log("Distance to wall: " + str(self.distanceToWall) + "Following Distance: " + str(self.wallFollowingDistance))
-            if (self.distanceToWall < self.wallFollowingDistance - 50) or (self.distanceToWall > self.wallFollowingDistance + 50):
-                self.queue.append(Wander())
-                self.stop()
-                print("Stopped Follwoing wall beause sensor out of range ")
-                self.isFollowingWall = False
-
-
-    def wander(self):
-        """
-        Robot just moves forward until sensors 
-        detect that a behavior should happen
-        """
-        self.isWandering = True
-
-        while self.isWandering:
-            self.run()
-            self.update_sensors()
-
-            if self.hasHitWall:
-                self.queue.append(TouchBehavior())
-                self.stop()
-                self.isWandering = False
-
-            if self.distanceToWall < MIN_WALL_DISTANCE:
-                if not any(isinstance(behavior, WallFollowing) for behavior in self.queue):
-                    if self.isFollowingWall == False:
-                        self.queue.append(WallFollowing())
-                        self.stop()
-                        self.isWandering = False
-
-            if self.fireDetected > FIRE_LIGHT_INTENSITY:
-                self.queue.append(FireDetection())
-                self.stop()
-                self.isWandering = False
 
     def process_behavior(self) -> None:
         """
         Proccess a behavior from the priority queue. Pops the behavior from
         queue before it is proccessed.
         """
+        
+        log("Priority queue BEFORE Pop..." + str(self.queue))
         behavior = heapq.heappop(self.queue)
-        print(self.queue)
+        log("Priority after AFTER Pop..." + str(self.queue))
         
         if behavior.priority == 0:
+            log("Touched a wall, recalibrating position...")
             behavior.run(self)
-            print("Finished Recalibrating position...")
+            log("Finished Recalibrating position...")
 
         if behavior.priority == 1:
+            log("Detected a light...")
             behavior.run()
-            print("Finished Fire Detection...")
+            log("Finished Fire Detection...")
 
         if behavior.priority == 2:
+            log("Detected a wall...")
             behavior.run(self)
-            print("Finished Following wall...")
+            log("Finished Following wall...")
 
         if behavior.priority == 3:
+            log("Starting to Wander...")
             behavior.run(self)
-            print("Finished Wandering...")
+            log("Finished Wandering...")
             
-    
     def update_sensors(self) -> None:
         """Function updates the robot's sensor values and stores these values.
         """
@@ -223,5 +160,6 @@ class Robot:
         if self.fireDetected > FIRE_LIGHT_INTENSITY:
             if not any(isinstance(behavior, FireDetection) for behavior in self.queue):
                 self.queue.append(FireDetection())
+        
     
 ############################################################################################
