@@ -50,7 +50,6 @@ class WallFollowing(RobotBehavior):
         robot.turn(angle_to_turn)
         print(angle_to_turn)
         robot.follow_wall()
-        print("Finished Following wall...")
 
 
 class Wander(RobotBehavior):

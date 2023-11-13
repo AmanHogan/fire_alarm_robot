@@ -1,6 +1,7 @@
 """Acts as a replacement for pybricks robotics module. Module is
 responsible for moving the robot, angle tracking, and robot behavior proccesing"""
 
+from random import randint
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor, UltrasonicSensor)
 from pybricks.parameters import Port, Stop, Direction
@@ -8,7 +9,6 @@ from globals import *
 from logger import log
 import heapq
 from behaviors import (RobotBehavior, TouchBehavior, FireDetection, WallFollowing, Wander)
-
 
 
 ######################################### Navigation class ############################################
@@ -22,7 +22,8 @@ class Navigator:
         log("Orientation: " + str(self.orientation))
 
     def update_nav(self, angle) -> None:
-        """Updates the logical orientation of the robot and keeps track of previous positions\n
+        """
+        Updates the logical orientation of the robot and keeps track of previous positions\n
         Args: angle (int): angle that the robot needs to be be turned by
         """
         # Update the orientation based on the turn and keep within the range of -180 to 180 degrees
@@ -51,71 +52,103 @@ class Robot:
 
         self.hasHitWall = touch.pressed() # True if sensor touched wall
         self.distanceToWall = sonic.distance() # distance to wall [mm] 
+        self.wallFollowingDistance = 0
         self.fireDetected = color.ambient() # percentage value of ambient light [#]
         self.isFollowingWall = False # True if robot is currently fallowing a wall
         self.isWandering = False # True if Robot is in Wandering behavior
 
     def move(self, distance) -> None:
-        """Moves robot a given distance in [mm]\n
+        """
+        Moves robot a given distance in [mm]\n
         Args: distance (float): Distance to be traveled [mm]
         """
-
         # tire rotation angle
         angle =  (((distance) / TIRE_CIRCUMFERENCE) * FULL_ROTATION)*ERROR_FACTOR_DISTANCE 
         self.left_motor. run_angle(TIRE_RPM, angle, wait=False)
         self.right_motor.run_angle(TIRE_RPM, angle)
         log("Move: " + str(distance))
 
-
     def turn(self, angle) -> None:
-        """Turns robot a given angle [deg]
-
-        Args:
-            angle (float): angle to turn robot [deg]
         """
+        Turns robot a given angle [deg]\n
+        Args: angle (float): angle to turn robot [deg]
+        """
+
+        # Calculate steering angle
+        steering_angle =  (((2 * M_PI * ROBOT_RADIUS_MM * (angle/360)) / 
+                            TIRE_CIRCUMFERENCE) * FULL_ROTATION) * ERROR_FACTOR_TURN
+        
+        # Turn tires
+        self.left_motor. run_angle(TIRE_RPM, -steering_angle, wait=False)
+        self.right_motor.run_angle(TIRE_RPM, steering_angle)
 
         self.navigator.update_nav(angle) # notify naviagtor
         log("Turn: " + str(angle))
         
-        # Calculate the angle needed to rotate the robot to be in the specified angle
-        arc_length = 2 * M_PI * ROBOT_RADIUS_MM * (angle/360)
-        new_angle =  ((arc_length) / TIRE_CIRCUMFERENCE) * FULL_ROTATION
-        new_angle =  new_angle * ERROR_FACTOR_TURN
-        
-        # Turn tires
-        self.left_motor. run_angle(TIRE_RPM, -new_angle, wait=False)
-        self.right_motor.run_angle(TIRE_RPM, new_angle)
-    
-    def run(self):
-        log("Running Until Stopped...")
+    def run(self) -> None:
+        """
+        The motor accelerates to TIRE_RPM 
+        and keeps running at this speed 
+        until you give a new command.
+        """
         self.left_motor.run(TIRE_RPM)
         self.right_motor.run(TIRE_RPM)
 
-    def stop(self):
+    def stop(self) -> None:
+        """
+        Stops the motor and lets it spin freely.
+        The motor gradually stops due to friction.
+        """
         self.left_motor.brake()
         self.right_motor.brake()
 
-    def backup(self):
+    def backup(self) -> None:
+        """
+        Given that the robot ran into a wall,
+        backup the robot 200 mm and turn it 90 degrees.
+        """
+        random_angle = randint(45, 180)
         self.move(-200)
-        self.turn(45)
+        self.turn(random_angle)
         self.hasHitWall = False
 
-    def follow_wall(self):
+    def follow_wall(self) -> None:
+        """
+        Ensures the robot follows the wall until it detects that it should not 
+        be following the wall anymore
+        """
         self.isFollowingWall = True
+        self.wallFollowingDistance = self.distanceToWall
+
         while self.isFollowingWall:
             self.run()
             self.update_sensors()
+
             if self.hasHitWall:
                 self.queue.append(TouchBehavior())
                 self.stop()
+                print("Stopped Follwoing wall because of hittinh wall")
                 self.isFollowingWall = False
 
             if self.fireDetected > FIRE_LIGHT_INTENSITY:
                 self.queue.append(FireDetection())
                 self.stop()
+                print("Stopped Follwoing wall because of fire detetcted ")
                 self.isFollowingWall = False
 
+            log("Distance to wall: " + str(self.distanceToWall) + "Following Distance: " + str(self.wallFollowingDistance))
+            if (self.distanceToWall < self.wallFollowingDistance - 50) or (self.distanceToWall > self.wallFollowingDistance + 50):
+                self.queue.append(Wander())
+                self.stop()
+                print("Stopped Follwoing wall beause sensor out of range ")
+                self.isFollowingWall = False
+
+
     def wander(self):
+        """
+        Robot just moves forward until sensors 
+        detect that a behavior should happen
+        """
         self.isWandering = True
 
         while self.isWandering:
@@ -138,25 +171,14 @@ class Robot:
                 self.queue.append(FireDetection())
                 self.stop()
                 self.isWandering = False
-        
-    
-    def execute_commands(self, robot_commands) -> None:
-        """ Takes a list of commands in format ('move', <float>) or ('turn', <float>)
-        Then executes these commands one-by-one
 
-        Args:
-            robot_commands (list[tuple[str, float]]): list of commands 
-            in format ('move', <float>) or ('turn', <float>)
+    def process_behavior(self) -> None:
         """
-        for command in robot_commands:
-            action, value = command
-            if action == 'move':
-                self.move(value)
-            elif action == 'turn':
-                self.turn(value)
-
-    def process_behavior(self):
+        Proccess a behavior from the priority queue. Pops the behavior from
+        queue before it is proccessed.
+        """
         behavior = heapq.heappop(self.queue)
+        print(self.queue)
         
         if behavior.priority == 0:
             behavior.run(self)
@@ -175,14 +197,16 @@ class Robot:
             print("Finished Wandering...")
             
     
-    def update_sensors(self):
-
+    def update_sensors(self) -> None:
+        """Function updates the robot's sensor values and stores these values.
+        """
         self.hasHitWall = self.touch.pressed()
         self.distanceToWall = self.sonic.distance()
         self.fireDetected = self.color.ambient()
 
-    def update_queue(self):
-
+    def update_queue(self) -> None:
+        """Updates the priority queue using the robot's sensor values
+        """
         if not self.queue:
             if not any(isinstance(behavior, Wander) for behavior in self.queue):
                 self.queue.append(Wander())
@@ -197,7 +221,7 @@ class Robot:
                     self.queue.append(WallFollowing())
 
         if self.fireDetected > FIRE_LIGHT_INTENSITY:
-            self.queue.append(FireDetection())
+            if not any(isinstance(behavior, FireDetection) for behavior in self.queue):
+                self.queue.append(FireDetection())
     
-
 ############################################################################################
