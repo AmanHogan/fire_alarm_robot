@@ -1,16 +1,14 @@
 """Acts as a replacement for pybricks robotics module. Module is
 responsible for moving the robot, angle tracking, and robot behavior proccesing"""
 
-from random import randint
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor, UltrasonicSensor)
-from pybricks.parameters import Port, Stop, Direction
+from pybricks.parameters import Port, Stop, Direction, Color
 from globals import *
 from logger import log
 import heapq
 from behaviors import (RobotBehavior, TouchBehavior, FireDetection, WallFollowing, Wander)
 import math
-
 
 ######################################### Navigation class ############################################
 
@@ -30,44 +28,48 @@ class Navigator:
         # Update the orientation based on the turn and keep within the range of -180 to 180 degrees
         self.orientation = (self.orientation + angle) % 360
         self.orientations.append(self.orientation)
-        log("Current Robot Orientation: " + str(self.orientation) + " degrees...")
+        
 
 ######################################### Robot class ############################################
 
 class Robot:
     """Custom defined Robot class for the lego ev3 robot. Responsible for moving and turning the robot.
     """
-    def __init__(self, left_motor: Motor, right_motor: Motor, 
-                 navigator: Navigator, 
-                 touch: TouchSensor, color: ColorSensor, sonic: UltrasonicSensor ):
+    def __init__(self, left_motor: Motor, right_motor: Motor, navigator: Navigator, 
+                 frontTouch: TouchSensor, leftTouch: TouchSensor,
+                 color: ColorSensor, sonic: UltrasonicSensor ):
         
         self.left_motor = left_motor # controls left tire
         self.right_motor = right_motor # controls right tire
-        self.navigator = navigator # object to keep track of robot position
-        self.touch = touch # touch sensor
+        self.navigator = navigator # object to keep track of robot's orientation
+        
+        self.frontTouch = frontTouch # right touch sensor
+        self.leftTouch = leftTouch # left touch sensor
         self.color = color # color sensor
         self.sonic = sonic # ultrasonic sensor
 
         self.queue = [] # priority queue
         heapq.heapify(self.queue)
 
-        self.hasHitWall = touch.pressed() # True if sensor touched wall
-        self.distanceToWall = sonic.distance() # distance to wall [mm] 
-        self.wallFollowingDistance = 0
-        self.current_light_intensity = color.ambient() # percentage value of ambient light [#]
-        self.light_threshold = 10
-        self.isFollowingWall = False # True if robot is currently fallowing a wall
-        self.isWandering = False # True if Robot is in Wandering behavior
-        self.isFollowingLight = False
-        self.fireNotFound = True
+        self.hasHitFrontWall = frontTouch.pressed() # True if sensor touched front wall
+        self.hasHitLeftWall = leftTouch.pressed() # True if sensor touched left wall
+        self.distanceToWall = sonic.distance() # distance to wall [mm]
+        self.current_color = color.color() # Color detected by Color Sensor
+
+        self.wallFollowingDistance = 0 # Starting Distance from wall when wall following [mm]
+        self.isFollowingWall = False # True if robot is in WallFollowing
+        self.isWandering = False # True if Robot is in Wander
+        self.isFollowingFire = False # True if robot is in FireDetection
+        self.fireNotFound = True # True if fire is found
 
     def move(self, distance) -> None:
         """
         Moves robot a given distance in [mm]\n
         Args: distance (float): Distance to be traveled [mm]
         """
+
         # tire rotation angle
-        angle =  (((distance) / TIRE_CIRCUMFERENCE) * FULL_ROTATION)*ERROR_FACTOR_DISTANCE 
+        angle =  (((distance)/TIRE_CIRC)*FULL_ROTATION)*DISTANCE_ERROR 
         self.left_motor. run_angle(TIRE_RPM, angle, wait=False)
         self.right_motor.run_angle(TIRE_RPM, angle)
         log("Robot Moved: " + str(distance) + " milimeters...")
@@ -79,15 +81,29 @@ class Robot:
         """
 
         # Calculate steering angle
-        steering_angle =  (((2 * M_PI * ROBOT_RADIUS_MM * (angle/360)) / 
-                            TIRE_CIRCUMFERENCE) * FULL_ROTATION) * ERROR_FACTOR_TURN
-        
-        # Turn tires
-        self.left_motor. run_angle(TIRE_RPM, -steering_angle, wait=False)
-        self.right_motor.run_angle(TIRE_RPM, steering_angle)
+        steering_angle =  (((2*M_PI*ROBOT_RADIUS*(angle/360))/TIRE_CIRC)*FULL_ROTATION)*TURN_ERROR
+        log("Robot supposed to turn: " + str(angle) + " degrees...")
 
-        self.navigator.update_nav(angle) # notify naviagtor
-        log("Robot turned: " + str(angle) + " degrees...")
+        for i in range(11):
+
+            self.update_sensors()
+            if self.hasHitFrontWall:
+                log("Robot Hit a wall in the front while turning!")
+                self.move(-50)
+                break
+
+            if self.hasHitLeftWall:
+                log("Robot Hit a wall on the left while turning!")
+                self.left_motor. run_angle(TIRE_RPM, (steering_angle/3), wait=False)
+                self.right_motor.run_angle(TIRE_RPM, -(steering_angle/3))
+                break
+
+            self.left_motor. run_angle(TIRE_RPM, -(steering_angle/10), wait=False)
+            self.right_motor.run_angle(TIRE_RPM, (steering_angle/10))
+            self.navigator.update_nav(steering_angle/10) # update orientation
+            
+        log("Current Robot Orientation: " + str(self.navigator.orientation) + " degrees...")
+        self.update_sensors()
         
     def run(self) -> None:
         """
@@ -106,49 +122,50 @@ class Robot:
         self.left_motor.brake()
         self.right_motor.brake()
 
-
     def process_behavior(self) -> None:
         """
-        Proccess a behavior from the priority queue. Pops the behavior from
-        queue before it is proccessed.
+        Proccess a behavior from the priority queue. Pops the highest priority 
+        behavior from queue then processes the behavior in RobotBehavior classes.
         """
 
         log("Priority queue BEFORE Pop..." + str(self.queue))
         behavior = heapq.heappop(self.queue)
         log("Priority after AFTER Pop..." + str(self.queue))
         
-        if behavior.priority == 0:
+        if behavior.priority == TOUCH:
             log("Touched a wall, recalibrating position...")
             behavior.run(self)
             log("Finished Recalibrating position...")
 
-        if behavior.priority == 1:
+        if behavior.priority == FIRE:
             log("Detected a light...")
             behavior.run(self)
 
-        if behavior.priority == 2:
+        if behavior.priority == WALL_FOLLOW:
             log("Detected a wall...")
             behavior.run(self)
 
-        if behavior.priority == 3:
+        if behavior.priority == WANDER:
             log("Starting to Wander...")
             behavior.run(self)
             
     def update_sensors(self) -> None:
-        """Function updates the robot's sensor values and stores these values.
+        """Function updates all of the robot's sensor values and stores these values.
         """
-        self.hasHitWall = self.touch.pressed()
+        self.hasHitFrontWall = self.frontTouch.pressed()
+        self.hasHitLeftWall = self.leftTouch.pressed()
         self.distanceToWall = self.sonic.distance()
-        self.current_light_intensity = self.color.ambient()
+        self.current_color = self.color.color()
 
     def update_queue(self) -> None:
-        """Updates the priority queue using the robot's sensor values
+        """Updates the priority queue using the robot's sensor values. Defaults to Wander if
+        priority queue is empty.
         """
         if not self.queue:
             if not any(isinstance(behavior, Wander) for behavior in self.queue):
                 self.queue.append(Wander())
 
-        if self.hasHitWall:
+        if self.hasHitFrontWall or self.hasHitLeftWall:
             if not any(isinstance(behavior, TouchBehavior) for behavior in self.queue):
                 self.queue.append(TouchBehavior())
 
@@ -157,9 +174,9 @@ class Robot:
                 if self.isFollowingWall == False:
                     self.queue.append(WallFollowing())
 
-        if self.current_light_intensity >=  self.light_threshold:
+        if self.current_color ==  Color.RED:
             if not any(isinstance(behavior, FireDetection) for behavior in self.queue):
                 self.queue.append(FireDetection())
         
-    
+
 ############################################################################################

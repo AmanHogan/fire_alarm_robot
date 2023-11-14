@@ -1,9 +1,9 @@
 """responsible for coordinating the behaviors that the robot will take given the sensor data"""
-import heapq
 from random import randint
 import math
 from logger import log
 from globals import *
+from pybricks.parameters import Color
 
 class RobotBehavior:
     def __init__(self, priority):
@@ -26,9 +26,12 @@ class TouchBehavior(RobotBehavior):
         super().__init__(0)
 
     def run(self, robot):
-        self.backup(robot)
+        if robot.hasHitFrontWall:
+            self.recalibrate_front(robot)
+        if robot.hasHitLeftWall:
+            self.recalibrate_left(robot)
 
-    def backup(self, robot) -> None:
+    def recalibrate_front(self, robot) -> None:
         """
         Given that the robot ran into a wall,
         backup the robot 200 mm and turn it 90 degrees.
@@ -36,7 +39,17 @@ class TouchBehavior(RobotBehavior):
         random_angle = randint(45, 180)
         robot.move(-200)
         robot.turn(random_angle)
-        robot.hasHitWall = False
+        robot.hasHitFrontWall = False
+
+    def recalibrate_left(self, robot) -> None:
+        """
+        Given that the robot ran into a wall,
+        backup the robot 200 mm and turn it 90 degrees.
+        """
+        random_angle = randint(45, 180)
+        robot.turn(-random_angle)
+        robot.hasHitLeftWall = False
+    
 
 
 class FireDetection(RobotBehavior):
@@ -51,35 +64,34 @@ class FireDetection(RobotBehavior):
 
     def move_to_fire(self, robot):
 
-        robot.isFollowingLight = True
-        previous_light_intensity = robot.current_light_intensity
+        robot.isFollowingFire = True
+        previous_color = robot.current_color
 
-        log("Current Light: " + str(robot.current_light_intensity) + " | Light Theshold: " + str(robot.light_threshold))
+        log("Current Color: " + str(robot.current_color))
         
-        while robot.isFollowingLight:
+        while robot.isFollowingFire:
 
             robot.move(50)
             robot.update_sensors()
             
-            log("Curr Light " + str(robot.current_light_intensity) + " | Prev Light: " + str(previous_light_intensity))
+            log("Curr Light " + str(robot.current_color) + " | Prev Light: " + str(previous_color))
 
-            if robot.hasHitWall:
-                self.stop_behavior(robot, "Stopped follwoing fire because touched a wall")
+            if robot.hasHitFrontWall:
+                self.stop_behavior(robot, "Stopped follwoing fire because touched a wall in front")
 
-            if robot.current_light_intensity > FIRE_LIGHT_INTENSITY:
+            if robot.hasHitLeftWall:
+                self.stop_behavior(robot, "Stopped follwoing fire because touched a wall to the left")
+
+            if robot.current_color == Color.RED:
                 self.stop_behavior(robot, "FIRE HAS BEEN FOUND!!!!")
                 robot.fireNotFound = False
-                
-            if previous_light_intensity > robot.current_light_intensity:
-                robot.light_threshold = robot.light_threshold + 3
-                log("False positive Light detected. Increasing Light ambience to " + str(robot.light_threshold))
-                self.stop_behavior(robot, "Stopped Follwoing light because false positive")
-                
-            previous_light_intensity = robot.current_light_intensity
 
+            if robot.current_color != Color.RED:
+                self.stop_behavior(robot, "False alarm (Flase positive color detection)")
+                
     def stop_behavior(self, robot, msg):
         robot.stop()
-        robot.isFollowingLight = False
+        robot.isFollowingFire = False
         log(msg)
         
 class WallFollowing(RobotBehavior):
@@ -120,10 +132,13 @@ class WallFollowing(RobotBehavior):
 
             log("Current distance to wall: " + str(robot.distanceToWall) + " | Starting Distance: to wall " + str(robot.wallFollowingDistance) , True)
 
-            if robot.hasHitWall:
-                self.stop_behavior(robot, "Stopped follwoing wall because touched a wall")
+            if robot.hasHitFrontWall:
+                self.stop_behavior(robot, "Stopped follwoing wall because touched a wall to the front")
 
-            if robot.current_light_intensity > robot.light_threshold:
+            if robot.hasHitLeftWall:
+                self.stop_behavior(robot, "Stopped follwoing wall because touched a wall to the left")
+
+            if robot.current_color == Color.RED:
                 self.stop_behavior(robot, "Stopped Follwoing wall because of light detetcted")
 
             if (robot.distanceToWall < robot.wallFollowingDistance - 50) or (robot.distanceToWall > robot.wallFollowingDistance + 50):
@@ -139,8 +154,6 @@ class Wander(RobotBehavior):
 
     def run(self, robot):
         self.wander(robot)
-
-    # TODO: Add function that scans room to check for differences in light intensitis, then test this out...
     
     def wander(self, robot):
         """
@@ -153,13 +166,16 @@ class Wander(RobotBehavior):
             robot.run()
             robot.update_sensors()
 
-            if robot.hasHitWall:
-                self.stop_behavior(robot, "Stopped Wandering because touched a wall...")
+            if robot.hasHitFrontWall:
+                self.stop_behavior(robot, "Stopped Wandering because touched wall in front...")
+
+            if robot.hasHitLeftWall:
+                self.stop_behavior(robot, "Stopped Wandering because touched a wall to the left...")
 
             if robot.distanceToWall < MIN_WALL_DISTANCE:
                 self.stop_behavior(robot, "Stopped Wandering because close to wall...")
 
-            if robot.current_light_intensity > robot.light_threshold:
+            if robot.current_color == Color.RED:
                 self.stop_behavior(robot, "Stopped Wandering because light/fire detetcetd...")
 
     def stop_behavior(self, robot, msg):
