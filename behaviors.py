@@ -4,6 +4,7 @@ import math
 from logger import log
 from globals import *
 from pybricks.parameters import Color
+import time
 
 class RobotBehavior:
     def __init__(self, priority):
@@ -141,7 +142,7 @@ class WallFollowing(RobotBehavior):
             if robot.current_color == Color.RED:
                 self.stop_behavior(robot, "Stopped Follwoing wall because of light detetcted")
 
-            if (robot.distanceToWall < robot.wallFollowingDistance - 50) or (robot.distanceToWall > robot.wallFollowingDistance + 50):
+            if (robot.distanceToWall < robot.wallFollowingDistance - 30) or (robot.distanceToWall > robot.wallFollowingDistance + 30):
                 self.stop_behavior(robot, "Stopped follwoing wall because not near wall...")
 
         
@@ -151,20 +152,30 @@ class Wander(RobotBehavior):
     """
     def __init__(self):
         super().__init__(3)
+        self.start_time = None
+        self.timeout_duration = 8
+    
 
     def run(self, robot):
         self.wander(robot)
-    
+
     def wander(self, robot):
         """
         Robot just moves forward until sensors 
         detect that a behavior should happen
         """
         robot.isWandering = True
+        self.start_time = time.time()
+        robot.isWandering = True
 
         while robot.isWandering:
             robot.run()
             robot.update_sensors()
+
+            # Check if the timeout duration has elapsed
+            if time.time() - self.start_time > self.timeout_duration:
+                self.stop_behavior(robot, "Timeout reached while wandering... Assuming the Robot is stuck...")
+                self.recalibrate_front(robot)
 
             if robot.hasHitFrontWall:
                 self.stop_behavior(robot, "Stopped Wandering because touched wall in front...")
@@ -182,3 +193,12 @@ class Wander(RobotBehavior):
         robot.stop()
         robot.isWandering = False
         log(msg)
+
+    def recalibrate_front(self, robot) -> None:
+        """
+        Given that the robot ran into a wall,
+        backup the robot 200 mm and turn it 90 degrees.
+        """
+        random_angle = randint(45, 180)
+        robot.move(-200)
+        robot.turn(random_angle)
