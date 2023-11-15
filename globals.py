@@ -28,4 +28,8 @@ WANDER = 3
 
 ################################ ALARM CONSTANTS ##########################
 MIN_WALL_DISTANCE = 150 # Distance from the wall where the robot active's wall following [mm]
+BACKUP_DISTANCE = -200
+ANGLE_LOW_BOUND = 45
+ANGLE_UPPER_BOUND = 180
+WALL_DISTANCE = 30
 ###########################################################################

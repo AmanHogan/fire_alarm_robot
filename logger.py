@@ -1,3 +1,4 @@
+"""responsible for logging data to log.txt on lego ev3 pybrick """
 import time
 
 def log(message, to_console_only=None) -> None:

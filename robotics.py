@@ -29,7 +29,6 @@ class Navigator:
         self.orientation = (self.orientation + angle) % 360
         self.orientations.append(self.orientation)
         
-
 ######################################### Robot class ############################################
 
 class Robot:
@@ -84,23 +83,32 @@ class Robot:
         steering_angle =  (((2*M_PI*ROBOT_RADIUS*(angle/360))/TIRE_CIRC)*FULL_ROTATION)*TURN_ERROR
         log("Robot supposed to turn: " + str(angle) + " degrees...")
 
+        # Divide the angle into increments
+        # Move the robot by these angle increments 
+        # If a touch sensor detects stimulus:
+            # Front Sensor - Move backwards
+            # Left Sensior - Turn to the right
         for i in range(11):
 
             self.update_sensors()
+
+            # Front Sensor - Move backwards
             if self.hasHitFrontWall:
                 log("Robot Hit a wall in the front while turning!")
-                self.move(-50)
+                self.move(BACKUP_DISTANCE/2)
                 break
-
+            
+             # Left Sensior - Turn to the right
             if self.hasHitLeftWall:
                 log("Robot Hit a wall on the left while turning!")
-                self.left_motor. run_angle(TIRE_RPM, (steering_angle/3), wait=False)
-                self.right_motor.run_angle(TIRE_RPM, -(steering_angle/3))
+                self.left_motor. run_angle(TIRE_RPM, (steering_angle/2), wait=False)
+                self.right_motor.run_angle(TIRE_RPM, -(steering_angle/2))
                 break
-
+            
+            # Turn Tires
             self.left_motor. run_angle(TIRE_RPM, -(steering_angle/10), wait=False)
             self.right_motor.run_angle(TIRE_RPM, (steering_angle/10))
-            self.navigator.update_nav(steering_angle/10) # update orientation
+            self.navigator.update_nav(steering_angle/10)
             
         log("Current Robot Orientation: " + str(self.navigator.orientation) + " degrees...")
         self.update_sensors()
@@ -150,7 +158,7 @@ class Robot:
             behavior.run(self)
             
     def update_sensors(self) -> None:
-        """Function updates all of the robot's sensor values and stores these values.
+        """Function updates all of the robot's sensor values and stores these values in the robot object
         """
         self.hasHitFrontWall = self.frontTouch.pressed()
         self.hasHitLeftWall = self.leftTouch.pressed()
@@ -158,7 +166,8 @@ class Robot:
         self.current_color = self.color.color()
 
     def update_queue(self) -> None:
-        """Updates the priority queue using the robot's sensor values. Defaults to Wander if
+        """
+        Updates the priority queue using the robot's sensor values. Defaults to Wander if
         priority queue is empty.
         """
         if not self.queue:
@@ -177,6 +186,5 @@ class Robot:
         if self.current_color ==  Color.RED:
             if not any(isinstance(behavior, FireDetection) for behavior in self.queue):
                 self.queue.append(FireDetection())
-        
-
+    
 ############################################################################################
