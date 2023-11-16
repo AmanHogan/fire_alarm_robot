@@ -3,12 +3,12 @@
 This project implements a control system for a LEGO EV3 robot using Python and the pybricks library. The robot is equipped with various sensors, including touch, color, and ultrasonic sensors, and is designed to exhibit different behaviors based on sensor input. Part of the CSE 4360 Autonomous Robot Design Course (Manfred Huber) (2023).
 
 ## Contents
-[Documentation](./docs/docs.pdf)
-[Documentation](./docs/report.pdf)
-[Subsumption/Behavior Based Module](behaviors.py)
-[Control System](robotics.py)
-[Global variables and Constants](globals.py)
-[Example LogFile](log.txt)
+- [Documentation](./docs/docs.pdf)
+- [Documentation](./docs/report.pdf)
+- [Subsumption/Behavior Based Module](behaviors.py)
+- [Control System](robotics.py)
+- [Global variables and Constants](globals.py)
+- [Example LogFile](log.txt)
 
 
 ## Prerequisites
