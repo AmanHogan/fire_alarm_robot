@@ -10,8 +10,6 @@ import heapq
 from behaviors import (RobotBehavior, TouchBehavior, FireDetection, WallFollowing, Wander)
 import math
 
-######################################### Navigation class ############################################
-
 class Navigator:
     """Class responsible for keeping track of the robot's logical orientation
     """
@@ -29,7 +27,6 @@ class Navigator:
         self.orientation = (self.orientation + angle) % 360
         self.orientations.append(self.orientation)
         
-######################################### Robot class ############################################
 
 class Robot:
     """Custom defined Robot class for the lego ev3 robot. Responsible for moving and turning the robot.
@@ -187,4 +184,3 @@ class Robot:
             if not any(isinstance(behavior, FireDetection) for behavior in self.queue):
                 self.queue.append(FireDetection())
     
-############################################################################################
