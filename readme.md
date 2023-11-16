@@ -77,10 +77,10 @@ Responsible for logging data to `log.txt` on the LEGO EV3 brick. The `log` funct
 
 ## Flow Diagrams
 ![alt text](./diagrams/main_dia.png)
-![alt text](./diagrams/touch.png)
-![alt text](./diagrams/follow.png)
-![alt text](./diagrams/wander.png)
-![alt text](./diagrams/fire.png)
+![alt text](./diagrams/touch_dia.png)
+![alt text](./diagrams/follow_dia.png)
+![alt text](./diagrams/wander_dia.png)
+![alt text](./diagrams/fire_dia.png)
 
 ## Contributors
 - Aman Hogan-Bailey
