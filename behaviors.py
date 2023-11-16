@@ -223,7 +223,7 @@ class Wander(RobotBehavior):
     def recalibrate_front(self, robot) -> None:
         """
         Given that the robot ran into a wall,
-        backup the robot 200 mm and turn it 90 degrees.
+        backup the robot 200 mm and turn it .
         """
         random_angle = randint(ANGLE_LOW_BOUND, ANGLE_UPPER_BOUND)
         robot.move(BACKUP_DISTANCE)

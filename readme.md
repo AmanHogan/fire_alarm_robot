@@ -7,6 +7,8 @@ This project implements a control system for a LEGO EV3 robot using Python and t
 [Subsumption/Behavior Based Module](behaviors.py)
 [Control System](robotics.py)
 [Global variables and Constants](globals.py)
+[Example LogFile](log.txt)
+
 
 ## Prerequisites
 - A Windows 10 or Mac OS computer
@@ -29,7 +31,6 @@ This project implements a control system for a LEGO EV3 robot using Python and t
 ## Configuration
 
 Adjust the constants and variables in `globals.py` to fine-tune the robot's performance based on your specific requirements.
-
 
 ## Project Structure
 
@@ -64,13 +65,22 @@ Contains constants and variables that can be modified before compile time. These
 
 Responsible for logging data to `log.txt` on the LEGO EV3 brick. The `log` function logs messages and timestamps to both the console and the log file.
 
-
 ## Important Constants
 
 - `TIRE_RPM`: Revolutions per minute of the robot's tires.
 - `MIN_WALL_DISTANCE`: Distance from the wall where the robot activates wall following.
 - `BACKUP_DISTANCE`: Distance the robot moves backward when recalibrating.
 - `WALL_DISTANCE`: Threshold distance for the robot to consider it is no longer near the wall.
+
+## Robot Design
+![alt text](./diagrams/robot_picture.png)
+
+## Flow Diagrams
+![alt text](./diagrams/main_dia.png)
+![alt text](./diagrams/touch.png)
+![alt text](./diagrams/follow.png)
+![alt text](./diagrams/wander.png)
+![alt text](./diagrams/fire.png)
 
 ## Contributors
 - Aman Hogan-Bailey
