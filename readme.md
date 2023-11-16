@@ -4,7 +4,7 @@ This project implements a control system for a LEGO EV3 robot using Python and t
 
 ## Contents
 - [Documentation](./docs/docs.pdf)
-- [Documentation](./docs/report.pdf)
+- [Report](./docs/report.pdf)
 - [Subsumption/Behavior Based Module](behaviors.py)
 - [Control System](robotics.py)
 - [Global variables and Constants](globals.py)
